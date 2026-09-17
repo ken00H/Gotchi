@@ -55,6 +55,8 @@ class GotchiEnv:
             "weather": self.pet.weather,
             "mood": self.pet.mood,
             "day_time": self.pet.day_time,
+            "stage": self.pet.stage,
+            "age": self.pet.age,
             "active_message": self.pet.msg,
             "steps_taken": self.steps_taken,
         }

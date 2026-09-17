@@ -131,6 +131,10 @@ class Gotchi:
         self.current_hour = 0
         self.last_clock_update = self.current_time # for advancing "pet clock time" in non-realtime steps
 
+        # Evolution & Lifecycle Stages (Roadmap §8.3)
+        self.age = 0
+        self.stage = "Baby"
+
     # Function to set an ephemeral message for a certain duration
     def set_msg(self, new_msg, duration=30):
         self.msg = new_msg
@@ -147,7 +151,7 @@ class Gotchi:
         en_str = "{:.2f}".format(self.energy)
 
         lines = []
-        lines.append(f"{self.clock_str} | Weather: {self.weather} | Mood: {self.mood} | {'Day' if self.day_time else 'Night'}")
+        lines.append(f"{self.clock_str} | Weather: {self.weather} | Mood: {self.mood} | {'Day' if self.day_time else 'Night'} | Stage: {self.stage}")
         lines.append("   .----------------------.")
 
         if self.msg:
@@ -173,8 +177,18 @@ class Gotchi:
                 else:
                     lines.append("            (^_^)")
             
-            # Holding a heart!
-            lines.append("            />❤️ ")
+            # Held item based on growth stage
+            if self.stage == "Baby":
+                lines.append("            />🌱 ")
+            elif self.stage == "Adult":
+                if self.happiness >= 7.0 and self.friendship >= 7.0:
+                    lines.append("            />⭐ ")
+                elif self.hunger >= 7.0:
+                    lines.append("            />🥕 ")
+                else:
+                    lines.append("            />❤️ ")
+            else:
+                lines.append("            />❤️ ")
         else:
             # Pet is away; display blank lines or a placeholder
             lines.append("")  # or "            ..."
@@ -208,6 +222,20 @@ class Gotchi:
 
         # single-step behavior: increment time
         self.current_time += 1
+        self.age += 1
+
+        # Check evolution progression (Baby -> Child -> Adult)
+        new_stage = self.stage
+        if self.age >= 1800:
+            new_stage = "Adult"
+        elif self.age >= 600:
+            new_stage = "Child"
+        else:
+            new_stage = "Baby"
+
+        if new_stage != self.stage:
+            self.stage = new_stage
+            self.set_msg(f"Evolved into {self.stage}!", 60)
 
         # advance pet time
         if not real_time and (self.current_time - self.last_clock_update) >= 60:
