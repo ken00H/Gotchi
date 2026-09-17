@@ -144,10 +144,10 @@ We still log quantitative traces (health line, command timestamps). These stay i
    1. API Options
        1. ‘Check in’ model like scheduled task models
        2. Real time API
-       3. Agentic model
+       3. Agentic / Headless model (`gotchi_env.py` & `benchmark.py` CLI) — **[Implemented]**
    2. Gotchi Improvements
-       1. Evolutionary stages or combination of inputs needed to allow the Gotchi to ‘grow’ not just ‘survive’
-       2. Stress test: where needs are impossible to fully ‘meet’
+       1. Evolutionary stages (`Baby` → `Child` → `Adult`) — **[Implemented]**
+       2. Stress test scenarios (`blizzard`, `famine`, `crisis`) — **[Implemented]**
 
 ## **Appendix A – Gotchi Interface Snapshot**
 
@@ -229,18 +229,28 @@ Your shell prompt should now start with `(venv)`.
 
 ---
 
-## 4. Install the dependency
+## 4. Install dependencies
 
 ```bash
-pip install pytz
+pip install -r requirements.txt
 ```
 
 ---
 
-## 5. Run the game
+## 5. Run tests
+
+Verify simulation mechanics, environment lifecycle, and benchmark scoring:
 
 ```bash
-python gotchi.py        # or python main.py
+pytest -v
+```
+
+---
+
+## 6. Run the interactive game
+
+```bash
+python gotchi.py
 ```
 
 Inside the ASCII screen you’ll see controls:
@@ -250,6 +260,47 @@ Inside the ASCII screen you’ll see controls:
 ```
 
 > Keep **needs_phrases.txt** and **random_events.txt** in the *same directory* as the script.
+
+---
+
+## 7. Run Automated Model Benchmarks
+
+Evaluate an LLM or baseline agent across trials and generate leaderboard rubric scores:
+
+```bash
+# Offline heuristic baseline
+python benchmark.py --model heuristic --duration 60 --runs 3
+
+# OpenAI model benchmark
+export OPENAI_API_KEY="your-key"
+python benchmark.py --model gpt-4o-mini --prompt-mode hidden --duration 60
+
+# Local Ollama model benchmark
+python benchmark.py --model llama3 --provider ollama --base-url http://localhost:11434/v1
+
+# Stress-test scenarios (blizzard, famine, crisis)
+python benchmark.py --model heuristic --scenario blizzard --duration 60
+```
+
+Benchmark artifacts and leaderboard tables are automatically saved to `logs/benchmarks/`.
+
+---
+
+## 8. Headless Environment API (`GotchiEnv`)
+
+Integrate Gotchi into custom evaluation loops, OpenAI Gym pipelines, or reinforcement learning agents:
+
+```python
+from gotchi_env import GotchiEnv
+
+# Initialize environment with stress scenario
+env = GotchiEnv(duration_minutes=60, scenario="blizzard", structured_obs=True)
+obs = env.reset()
+
+# Step simulation: 'f' (feed), 'p' (play), 's' (sleep), 'q' (quit)
+obs, reward, done, info = env.step("f")
+print(f"State: {info['state']} | Reward: {reward}")
+```
 
 ---
 
