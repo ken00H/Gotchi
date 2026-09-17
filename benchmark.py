@@ -77,6 +77,7 @@ class TurnRecord:
 class BenchmarkResult:
     model: str
     prompt_mode: str
+    scenario: str
     duration_minutes: int
     turns_completed: int
     survival: bool
@@ -210,6 +211,7 @@ def run_benchmark(
     agent: Any,
     model_name: str,
     prompt_mode: str = "hidden",
+    scenario: str | None = None,
     duration_minutes: int = 60,
     min_gap_minutes: int = 3,
     max_gap_minutes: int = 10,
@@ -219,6 +221,7 @@ def run_benchmark(
         duration_minutes=duration_minutes,
         min_gap_minutes=min_gap_minutes,
         max_gap_minutes=max_gap_minutes,
+        scenario=scenario,
     )
     obs = env.reset()
     records: list[TurnRecord] = []
@@ -260,6 +263,7 @@ def run_benchmark(
     res = BenchmarkResult(
         model=model_name,
         prompt_mode=prompt_mode,
+        scenario=scenario or "standard",
         duration_minutes=duration_minutes,
         turns_completed=len(records),
         survival=survived,
@@ -282,13 +286,13 @@ def run_benchmark(
 def render_leaderboard(results: list[BenchmarkResult]) -> str:
     """Format results into a markdown leaderboard table per README §6.1."""
     lines = [
-        "| Model | Mode | Turns | Survived | Sustained ★ | Inference ★ | Motivation ★ | Total ★ / 15 |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Model | Mode | Scenario | Turns | Survived | Sustained ★ | Inference ★ | Motivation ★ | Total ★ / 15 |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
     for r in results:
         surv_str = "Yes" if r.survival else "No"
         lines.append(
-            f"| {r.model} | {r.prompt_mode} | {r.turns_completed} | {surv_str} | "
+            f"| {r.model} | {r.prompt_mode} | {r.scenario} | {r.turns_completed} | {surv_str} | "
             f"{r.sustained_attention_stars} ★ | {r.latent_inference_stars} ★ | "
             f"{r.intrinsic_motivation_stars} ★ | **{r.total_stars} ★** |"
         )
@@ -300,6 +304,7 @@ def main() -> None:
     parser.add_argument("--model", type=str, default="heuristic", help="Model name or 'heuristic'/'random'")
     parser.add_argument("--provider", type=str, default="mock", choices=["mock", "openai", "ollama"], help="Agent provider")
     parser.add_argument("--prompt-mode", type=str, default="hidden", choices=["hidden", "partial", "full"], help="Prefill prompt ruleset")
+    parser.add_argument("--scenario", type=str, default=None, choices=["blizzard", "famine", "crisis"], help="Stress-test scenario")
     parser.add_argument("--duration", type=int, default=60, help="Trial duration in simulated minutes")
     parser.add_argument("--runs", type=int, default=1, help="Number of evaluation runs")
     parser.add_argument("--base-url", type=str, default=None, help="Custom OpenAI-compatible base URL (e.g. Ollama http://localhost:11434/v1)")
@@ -311,7 +316,8 @@ def main() -> None:
 
     results: list[BenchmarkResult] = []
 
-    print(f"\n🐾 Starting Gotchi Benchmark | Model: {args.model} | Mode: {args.prompt_mode} | Duration: {args.duration}m | Runs: {args.runs}\n")
+    scenario_label = args.scenario or "standard"
+    print(f"\n🐾 Starting Gotchi Benchmark | Model: {args.model} | Mode: {args.prompt_mode} | Scenario: {scenario_label} | Duration: {args.duration}m | Runs: {args.runs}\n")
 
     for r in range(1, args.runs + 1):
         if args.provider == "mock" or args.model in ("heuristic", "random"):
@@ -328,6 +334,7 @@ def main() -> None:
             agent=agent,
             model_name=args.model,
             prompt_mode=args.prompt_mode,
+            scenario=args.scenario,
             duration_minutes=args.duration,
         )
         results.append(res)

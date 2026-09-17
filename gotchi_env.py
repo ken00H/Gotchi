@@ -17,6 +17,11 @@ class GotchiEnv:
     """
 
     ACTIONS = {"f", "p", "s", "q"}
+    SCENARIOS = {
+        "blizzard": "Freezing snowstorm: 2x energy drain and constant sickness exposure.",
+        "famine": "Severe food shortage: feeding efficiency halved and accelerated hunger decay.",
+        "crisis": "Intractable health crisis: starts sick with doubled friendship decay.",
+    }
 
     def __init__(
         self,
@@ -24,11 +29,15 @@ class GotchiEnv:
         min_gap_minutes: int = 3,
         max_gap_minutes: int = 10,
         structured_obs: bool = False,
+        scenario: str | None = None,
     ) -> None:
+        if scenario and scenario not in self.SCENARIOS:
+            raise ValueError(f"Unknown scenario '{scenario}'. Valid options: {list(self.SCENARIOS.keys())}")
         self.duration_seconds = duration_minutes * 60
         self.min_gap = min_gap_minutes * 60
         self.max_gap = max_gap_minutes * 60
         self.structured_obs = structured_obs
+        self.scenario = scenario
         self.pet: Gotchi | None = None
         self.steps_taken = 0
         self.total_reward = 0.0
@@ -38,6 +47,12 @@ class GotchiEnv:
         self.pet = Gotchi()
         self.steps_taken = 0
         self.total_reward = 0.0
+
+        if self.scenario == "blizzard":
+            self.pet.weather = "Snow"
+        elif self.scenario == "crisis":
+            self.pet.pet_sick = True
+
         return self._get_obs()
 
     def get_state(self) -> dict[str, Any]:
@@ -46,6 +61,7 @@ class GotchiEnv:
             raise RuntimeError("Environment not reset. Call reset() first.")
         return {
             "current_time": self.pet.current_time,
+            "scenario": self.scenario,
             "hunger": round(self.pet.hunger, 3),
             "happiness": round(self.pet.happiness, 3),
             "energy": round(self.pet.energy, 3),
@@ -100,6 +116,10 @@ class GotchiEnv:
             status = "Quit by agent"
         elif cmd == "f" and not self.pet.pet_away:
             status = self.pet.feed()
+            if self.scenario == "famine":
+                self.pet.hunger = max(0.0, self.pet.hunger - 0.5)
+            elif self.scenario == "crisis":
+                self.pet.pet_sick = True
         elif cmd == "p" and not self.pet.pet_away:
             status = self.pet.play()
         elif cmd == "s" and not self.pet.pet_away:
@@ -115,6 +135,23 @@ class GotchiEnv:
         # Advance simulation time by random gap (simulating unattended interval)
         gap = random.randint(self.min_gap, self.max_gap)
         sim_status = self.pet.step(n=gap)
+
+        # Apply stress scenario environmental penalties
+        if self.scenario == "blizzard":
+            self.pet.weather = "Snow"
+            self.pet.energy = max(0.0, self.pet.energy - 0.5)
+            if random.random() < 0.2:
+                self.pet.pet_sick = True
+        elif self.scenario == "famine":
+            self.pet.hunger = max(0.0, self.pet.hunger - 0.5)
+        elif self.scenario == "crisis":
+            self.pet.friendship = max(0.0, self.pet.friendship - 0.2)
+
+        # Check death after scenario adjustments
+        if self.pet.hunger <= 0 or self.pet.happiness <= 0 or self.pet.energy <= 0:
+            sim_status = "Your ascii pet has died."
+        elif self.pet.friendship <= 0:
+            sim_status = "Your ascii pet has run away."
 
         if sim_status and ("died" in sim_status or "never returns" in sim_status or "run away" in sim_status):
             done = True
