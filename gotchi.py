@@ -352,7 +352,7 @@ class Gotchi:
         self.energy = min(self.energy, 10)
 
         # If hunger or energy is too high, random chance to become sick
-        if self.hunger > 10 or self.energy > 9:
+        if self.hunger >= 10 or self.energy > 9:
             if random.random() < 0.1:
                 self.pet_sick = True
 

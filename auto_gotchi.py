@@ -28,8 +28,8 @@ from pathlib import Path
 from typing import Callable
 
 import matplotlib.pyplot as plt  # type: ignore
-import openai
 from dotenv import load_dotenv  # type: ignore
+from openai import OpenAI
 
 # ───────────────────────────────────────────────────────────────────────────
 # 1.  CONFIG
@@ -39,9 +39,11 @@ LOG_DIR = ROOT / "logs"
 LOG_DIR.mkdir(exist_ok=True)
 
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
-if not openai.api_key:
-    raise EnvironmentError("Set OPENAI_API_KEY (env or .env file).")
+api_key = os.getenv("OPENAI_API_KEY")
+base_url = os.getenv("OPENAI_BASE_URL")
+client: OpenAI | None = (
+    OpenAI(api_key=api_key, base_url=base_url) if api_key else None
+)
 
 MODEL        = os.getenv("OPENAI_MODEL", "o3")
 TEMPERATURE  = float(os.getenv("OPENAI_TEMPERATURE", "1"))
@@ -55,9 +57,9 @@ REGEX_DEAD = re.compile(r"ascii pet has died", re.I)
 # 2.  IMPORT GAME
 # ───────────────────────────────────────────────────────────────────────────
 try:
-    from gotchi_beta import Gotchi, user_input_queue  # type: ignore
+    from gotchi import Gotchi, user_input_queue  # type: ignore
 except ModuleNotFoundError:
-    print("✖ Cannot import gotchi_beta.py – place it alongside this file.",
+    print("✖ Cannot import gotchi.py – place it alongside this file.",
           file=sys.stderr)
     raise
 
@@ -178,7 +180,7 @@ def gpt_loop(
         conversation.append({"role": "user", "content": screen})
 
         try:
-            resp = openai.ChatCompletion.create(
+            resp = client.chat.completions.create(
                 model=MODEL,
                 messages=conversation,
                 temperature=TEMPERATURE,
@@ -227,7 +229,7 @@ def summarise_run(conv: list[dict[str, str]], run_no: int) -> str:
         {"role": "user", "content": "Please summarise this run now."},
     ]
     try:
-        resp = openai.ChatCompletion.create(
+        resp = client.chat.completions.create(
             model=MODEL,
             messages=prompt,
             temperature=1,
@@ -356,6 +358,8 @@ def final_shutdown() -> None:
 # 11.  MAIN
 # ───────────────────────────────────────────────────────────────────────────
 def main() -> None:
+    if client is None:
+        raise EnvironmentError("Set OPENAI_API_KEY (env or .env file).")
     for rn in range(1, MAX_RUNS + 1):
         run_once(rn)
     final_shutdown()
